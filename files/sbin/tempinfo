@@ -1,32 +1,14 @@
 #!/bin/sh
-# SPDX-License-Identifier: GPL-2.0-only
-#
-# 概览页「系统 → 温度」的数据源，参考 Actions-OpenWrt-AN758X。
-# LuCI 的 luci.getTempInfo 执行本脚本，非空输出会显示在系统信息表格中。
-# autocore 在 Airoha 平台不安装 tempinfo，由 files/ 覆盖进固件补齐。
 
-IEEE_PATH="/sys/class/ieee80211"
 THERMAL_PATH="/sys/class/thermal"
 
-# sysfs 毫摄氏度 → 摄氏度；忽略空值、无效值，避免显示虚假的 0°C。
 fmt_c() {
 	[ -r "$1" ] || return 0
 	awk '$0 ~ /^-?[0-9]+$/ { printf("%.1f°C", $0 / 1000); exit }' "$1" 2>/dev/null
 }
 
-# CPU 温度（AN7581/AN7583）。
 cpu_temp="$(fmt_c "$THERMAL_PATH/thermal_zone0/temp")"
 
-# WiFi 温度（mt76 / MT7916），兼容两种 hwmon 路径。
-wifi_temp=""
-for p in "$IEEE_PATH"/phy*/hwmon*/temp1_input \
-         "$IEEE_PATH"/phy*/device/hwmon/hwmon*/temp1_input; do
-	[ -r "$p" ] || continue
-	t="$(fmt_c "$p")"
-	[ -n "$t" ] && wifi_temp="${wifi_temp:+$wifi_temp }$t"
-done
-
-# PON 光模块温度：ponctl 已将原始值转换为摄氏度。
 pon_temp=""
 if [ -x /usr/sbin/ponctl ] && [ -x /usr/bin/jsonfilter ]; then
 	pon_dev=""
@@ -49,7 +31,6 @@ fi
 
 out=""
 [ -n "$cpu_temp" ] && out="CPU: $cpu_temp"
-[ -n "$wifi_temp" ] && out="${out:+$out, }WiFi: $wifi_temp"
 [ -n "$pon_temp" ] && out="${out:+$out, }PON: $pon_temp"
 [ -n "$out" ] || out="No temperature info"
 
