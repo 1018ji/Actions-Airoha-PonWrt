@@ -1,8 +1,8 @@
 #
 # https://github.com/P3TERX/Actions-OpenWrt
 #
-# File: .github/workflows/openwrt-bulder.yml
-# Description: Build OpenWrt using GitHub Actions
+# File: .github/workflows/ponwrt-builder.yml
+# Description: Build PonWrt using GitHub Actions
 #
 # Copyright (c) 2019-2024 P3TERX <https://p3terx.com>
 #
@@ -10,11 +10,17 @@
 # See /LICENSE for more information.
 #
 
-name: OpenWrt Builder
+name: PonWrt Builder
 
 on:
   repository_dispatch:
   workflow_dispatch:
+    inputs:
+      ssh:
+        description: '开启 SSH 调试'
+        type: boolean
+        required: false
+        default: false
 
 env:
   REPO_URL: https://github.com/1018ji/ponwrt
@@ -83,6 +89,13 @@ jobs:
         make download -j$(nproc)
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
+
+    - name: Setup SSH session
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.ssh }}
+      uses: owenthereal/action-upterm@v2
+      with:
+        detached: true
+        limit-access-to-actor: true
 
     - name: Compile the firmware
       id: compile
