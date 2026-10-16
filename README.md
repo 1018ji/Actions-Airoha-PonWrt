@@ -1,39 +1,36 @@
-**English** | [中文](https://p3terx.com/archives/build-openwrt-with-github-actions.html)
+![精简自用，请自己 FORK 后编译固件!!!](assets/fork-build-warning.svg)
 
-# Actions-OpenWrt
+# Nokia XG-040G-MD 精简版 PonWrt 固件
 
-[![LICENSE](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat-square&label=LICENSE)](https://github.com/P3TERX/Actions-OpenWrt/blob/master/LICENSE)
-![GitHub Stars](https://img.shields.io/github/stars/P3TERX/Actions-OpenWrt.svg?style=flat-square&label=Stars&logo=github)
-![GitHub Forks](https://img.shields.io/github/forks/P3TERX/Actions-OpenWrt.svg?style=flat-square&label=Forks&logo=github)
+基于 PonWrt 的 Airoha AN7581 固件编译配置，当前仅编译 **Nokia XG-040G-MD（UBI）**。构建源码使用 [1018ji/ponwrt](https://github.com/1018ji/ponwrt) 的 `master` 分支。
 
-A template for building OpenWrt with GitHub Actions
+本配置以精简为主，关闭 USB/存储、无线、VPN、网络扩展及调试工具，保留 PON 管理、基础 IPv6、BBR、LuCI 中文界面和 Bootstrap 主题。Initramfs 改用 ZSTD 压缩，并新增 NPU 中文管理界面、CPU/PON 温度显示、温度脚本权限修复及 BusyBox `usleep`。
 
-## Usage
+![PonWrt 状态页面预览，包含 CPU/PON 温度显示](assets/ponwrt-status-preview.png)
 
-- Click the [Use this template](https://github.com/P3TERX/Actions-OpenWrt/generate) button to create a new repository.
-- Generate `.config` files using [Lean's OpenWrt](https://github.com/coolsnowwolf/lede) source code. ( You can change it through environment variables in the workflow file. )
-- Push `.config` file to the GitHub repository.
-- Select `Build OpenWrt` on the Actions page.
-- Click the `Run workflow` button.
-- When the build is complete, click the `Artifacts` button in the upper right corner of the Actions page to download the binaries.
+| 类型 | 项目 | 上游配置 | 本仓库调整 |
+| --- | --- | --- | --- |
+| 调整 | 编译设备 | 同时选择 12 个设备配置，含 USB/SFP 变体 | 仅选择 `nokia_xg-040g-md-ubi`，关闭其他设备配置 |
+| 调整 | Initramfs 压缩 | 不压缩 | 改用 ZSTD 压缩，保留 SquashFS 根文件系统 |
+| 精简 | USB 与存储 | 选中 USB 3.0、USB 存储、UAS、USB 端口 LED、`block-mount` 及 ext4/vfat/exfat 模块 | 关闭相关模块及依赖，并从目标设备默认包中显式排除 USB、挂载和文件系统扩展包 |
+| 精简 | 无线功能 | 选中 MT7915/MT7916、mac80211、wpad、无线工具及相关固件 | 关闭无线驱动、固件、认证、管理工具及相关依赖 |
+| 精简 | LuCI 主题 | 同时选择 Bootstrap 和 Argon | 移除 `luci-theme-argon`，仅保留 Bootstrap |
+| 精简 | DNS 扩展 | `dnsmasq-full` 启用 DNSSEC、权威 DNS、conntrack 和 TFTP | 关闭上述扩展，保留 DHCP、DHCPv6 和 nftset |
+| 精简 | VPN 与隧道 | 启用 WireGuard、TUN、OpenVPN backports、MPPE 和 UDP 隧道模块 | 关闭 `kmod-wireguard`、`kmod-tun`、`kmod-ovpn-backports`、`kmod-mppe`、`kmod-udptunnel4/6` |
+| 精简 | MACVLAN 与透明代理模块 | 启用 MACVLAN、nf/nft socket 和 TPROXY 模块 | 关闭 `kmod-macvlan` 及对应 socket/TPROXY 模块 |
+| 精简 | 内核网络扩展 | 启用 IPv4/IPv6 组播路由、PIM、IPv6 SEG6 LWTUNNEL 和 MPTCP | 关闭上述内核选项，保留基础 IPv6 支持 |
+| 精简 | 流量调度 | 启用 CAKE 和 BBR 模块 | 关闭 `kmod-sched-cake`，保留原有 `kmod-tcp-bbr` |
+| 精简 | 调试与网络工具 | 启用 `airoha-pon-debug`、`conntrack`、`ethtool-full`、`ip-full`、`ip-bridge`、`iperf3`、`tcpdump`、`i2c-tools`、`wget-ssl` | 关闭这些工具；保留 PON 管理所需的 `airoha-ponctl`、`airoha-pond` 和 LuCI PON 页面 |
+| 精简 | 相关依赖库 | 选中 `libbpf`、`libelf`、`libpcap`、`libpcre2`、`libiperf3`、`libiwinfo`、netfilter 相关库等 | 随功能精简关闭对应依赖库的编译选项 |
+| 精简 | 内核调试 | 启用内核调试、调试信息、KALLSYMS、Magic SysRq、core dump 和 relay | 关闭这些调试选项 |
+| 精简 | Swap | 启用 `CONFIG_KERNEL_SWAP` | 关闭内核 Swap 支持 |
+| 精简 | 开发工具链 | 启用开发模式、GDB、BPF 主机工具链和主机 LLVM 选项 | 关闭对应选项，BPF 工具链改为 `NONE` |
+| 精简 | OpenSSL | 启用 ENGINE、CMS、废弃接口、部分旧算法和 `libopenssl-legacy` | 关闭上述选项，启用 `OPENSSL_NO_DEPRECATED`；保留 OpenSSL 主库 |
+| 调整 | 未启用应用的附加选项 | IPTV 设备默认项、PassWall 和 Rclone 的部分附加选项仍启用 | 清理这些默认/附加选项；IPTV、PassWall、Rclone 应用在两份配置中均未启用 |
+| 新增 | BusyBox `usleep` | 未启用 `CONFIG_BUSYBOX_CONFIG_USLEEP` | 启用微秒级休眠命令 `usleep` |
+| 新增 | Airoha NPU 管理 | 未选中 NPU LuCI 应用 | 加入 `luci-app-airoha-npu` 和 `luci-i18n-airoha-npu-zh-cn`，提供 NPU 管理界面及中文翻译 |
+| 新增 | NPU 软件源 | 配置文件不涉及软件源脚本 | `diy-part1.sh` 拉取 [luanmuc/luci-app-airoha-npu](https://github.com/luanmuc/luci-app-airoha-npu)，通过 `feeds.conf.default` 的本地 `airoha` feed 加入构建 |
+| 新增 | CPU/PON 温度显示 | 配置文件不涉及自定义温度脚本 | 添加 `files/sbin/tempinfo`，从 `thermal_zone0` 读取 CPU 温度，从 `ponctl status --json` 读取 PON 前端温度 |
+| 新增 | 温度脚本权限修复 | 配置文件不涉及首次启动脚本 | 添加 `files/etc/uci-defaults/98-tempinfo-perm`，首次启动时补齐 `/sbin/tempinfo` 的执行权限 |
 
-## Tips
-
-- It may take a long time to create a `.config` file and build the OpenWrt firmware. Thus, before create repository to build your own firmware, you may check out if others have already built it which meet your needs by simply [search `Actions-Openwrt` in GitHub](https://github.com/search?q=Actions-openwrt).
-- Add some meta info of your built firmware (such as firmware architecture and installed packages) to your repository introduction, this will save others' time.
-
-## Credits
-
-- [Microsoft Azure](https://azure.microsoft.com)
-- [GitHub Actions](https://github.com/features/actions)
-- [OpenWrt](https://github.com/openwrt/openwrt)
-- [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede)
-- [Mikubill/transfer](https://github.com/Mikubill/transfer)
-- [softprops/action-gh-release](https://github.com/softprops/action-gh-release)
-- [Mattraks/delete-workflow-runs](https://github.com/Mattraks/delete-workflow-runs)
-- [dev-drprasad/delete-older-releases](https://github.com/dev-drprasad/delete-older-releases)
-- [peter-evans/repository-dispatch](https://github.com/peter-evans/repository-dispatch)
-
-## License
-
-[MIT](https://github.com/P3TERX/Actions-OpenWrt/blob/main/LICENSE) © [**P3TERX**](https://p3terx.com)
+表中的“关闭”指关闭编译选项，包含上游选为 `y` 或 `m` 的包。基础 LuCI 中文界面、PON 管理和 BBR 均为上游已有功能。
