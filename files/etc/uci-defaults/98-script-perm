@@ -2,8 +2,8 @@
 # 首次启动时补齐执行权限，避免通过 ZIP 等方式传输后 LuCI 只显示「?」。
 # uci-defaults 由启动脚本以 source 方式执行，成功后自动删除。
 
-if [ -f /sbin/tempinfo ] && [ ! -x /sbin/tempinfo ]; then
-	chmod +x /sbin/tempinfo
-fi
+for f in /sbin/tempinfo /sbin/cpuusage /sbin/cpuinfo; do
+	[ -f "$f" ] && [ ! -x "$f" ] && chmod +x "$f"
+done
 
 exit 0

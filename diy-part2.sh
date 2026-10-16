@@ -18,3 +18,7 @@
 
 # Modify hostname
 #sed -i 's/OpenWrt/P3TERX-Router/g' package/base-files/files/bin/config_generate
+
+LUCI_RPC=feeds/luci/modules/luci-base/root/usr/share/rpcd/ucode/luci
+sed -i "s|popen('top -n1[^;]*;|popen('/sbin/cpuusage');|" "$LUCI_RPC"
+grep -q "popen('/sbin/cpuusage')" "$LUCI_RPC" || exit 1

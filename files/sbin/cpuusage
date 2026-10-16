@@ -1,0 +1,31 @@
+#!/bin/sh
+
+PPE_PATH="/sys/kernel/debug/ppe"
+
+cpu="$(top -n1 | awk '/^CPU/ { printf("%d%%", 100 - $8); exit }')"
+out="CPU: ${cpu:-?}"
+
+if [ -r "$PPE_PATH/entries" ]; then
+	ppe="$(awk '
+		function hex(s,   i, n) {
+			n = 0
+			s = tolower(s)
+			for (i = 1; i <= length(s); i++)
+				n = n * 16 + index("0123456789abcdef", substr(s, i, 1)) - 1
+			return n
+		}
+		/^[0-9a-fA-F]+ / {
+			i = hex($1)
+			e = (i < 8192) ? 0 : (i < 16384) ? 1 : 2
+			t[e]++
+			if ($2 == "BND") b[e]++
+		}
+		END {
+			printf("PPE0: %d/%d, PPE1: %d/%d", b[0], t[0], b[1], t[1])
+			if (t[2]) printf(", DRAM: %d/%d", b[2], t[2])
+		}
+	' "$PPE_PATH/entries" 2>/dev/null)"
+	[ -n "$ppe" ] && out="$out, $ppe"
+fi
+
+printf '%s' "$out"

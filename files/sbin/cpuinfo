@@ -1,0 +1,8 @@
+#!/bin/sh
+
+CPUINFO_PATH="/proc/cpuinfo"
+
+cpu_arch="$(awk -F ': ' '/model name/ { print $2; exit }' "$CPUINFO_PATH")"
+cpu_cores="$(grep -c '^processor' "$CPUINFO_PATH")"
+
+printf '%s x %s' "${cpu_arch:-?}" "$cpu_cores"
