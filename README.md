@@ -4,7 +4,7 @@
 
 基于 PonWrt 的 Airoha AN7581 固件编译配置，当前仅编译 **Nokia XG-040G-MD（UBI）**。构建源码使用 [1018ji/ponwrt](https://github.com/1018ji/ponwrt) 的 `master` 分支。
 
-本配置以精简为主，关闭 USB/存储、无线、VPN、网络扩展及调试工具，保留 PON 管理、基础 IPv6、BBR、LuCI 中文界面和 Bootstrap 主题。Initramfs 改用 ZSTD 压缩，并新增 NPU 中文管理界面、CPU/PON 温度显示、CPU 使用率附加 PPE 流表统计、脚本权限修复及 BusyBox `usleep`。
+本配置以精简为主，关闭 USB/存储、无线、VPN、网络扩展及调试工具，保留 PON 管理、基础 IPv6、BBR、LuCI 中文界面和 Bootstrap 主题。Initramfs 改用 ZSTD 压缩，移除 LuCI「插件」「诊断」菜单，并新增 CPU/PON 温度显示、CPU 使用率附加 PPE 流表统计、最大连接数调整、脚本权限修复及 BusyBox `usleep`。
 
 构建工作流位于 [`.github/workflows/ponwrt-builder.yml`](.github/workflows/ponwrt-builder.yml)，在 **Actions → PonWrt Builder → Run workflow** 中手动运行。勾选“开启 SSH 调试”后，可从 **Setup SSH session** 日志复制 SSH 命令连接构建环境，编译会继续运行。SSH 仅允许触发任务的账号使用其 GitHub 公钥连接，请先将本机 SSH 公钥添加到 GitHub 账号的 **Settings → SSH and GPG keys**。源码目录为 `/workdir/openwrt`，调试完成后执行 `exit` 结束会话，以免任务在最后等待。
 
@@ -19,22 +19,25 @@
 | 精简 | LuCI 主题 | 同时选择 Bootstrap 和 Argon | 移除 `luci-theme-argon`，仅保留 Bootstrap |
 | 精简 | DNS 扩展 | `dnsmasq-full` 启用 DNSSEC、权威 DNS、conntrack 和 TFTP | 关闭上述扩展，保留 DHCP、DHCPv6 和 nftset |
 | 精简 | VPN 与隧道 | 启用 WireGuard、TUN、OpenVPN backports、MPPE 和 UDP 隧道模块 | 关闭 `kmod-wireguard`、`kmod-tun`、`kmod-ovpn-backports`、`kmod-mppe`、`kmod-udptunnel4/6` |
+| 精简 | 内核加密模块 | 选中 WireGuard 所需的 `kmod-crypto-chacha20poly1305`、`kmod-crypto-kpp` 及 `kmod-crypto-lib-chacha20/chacha20poly1305/curve25519/poly1305` | 随 WireGuard 关闭这些模块；dropbear、OpenSSL 自带的 ChaCha20/Curve25519 不受影响 |
 | 精简 | MACVLAN 与透明代理模块 | 启用 MACVLAN、nf/nft socket 和 TPROXY 模块 | 关闭 `kmod-macvlan` 及对应 socket/TPROXY 模块 |
 | 精简 | 内核网络扩展 | 启用 IPv4/IPv6 组播路由、PIM、IPv6 SEG6 LWTUNNEL 和 MPTCP | 关闭上述内核选项，保留基础 IPv6 支持 |
 | 精简 | 流量调度 | 启用 CAKE 和 BBR 模块 | 关闭 `kmod-sched-cake`，保留原有 `kmod-tcp-bbr` |
 | 精简 | 调试与网络工具 | 启用 `airoha-pon-debug`、`conntrack`、`ethtool-full`、`ip-full`、`ip-bridge`、`iperf3`、`tcpdump`、`i2c-tools`、`wget-ssl` | 关闭这些工具；保留 PON 管理所需的 `airoha-ponctl`、`airoha-pond` 和 LuCI PON 页面 |
 | 精简 | 相关依赖库 | 选中 `libbpf`、`libelf`、`libpcap`、`libpcre2`、`libiperf3`、`libiwinfo`、netfilter 相关库等 | 随功能精简关闭对应依赖库的编译选项 |
 | 精简 | 内核调试 | 启用内核调试、调试信息、KALLSYMS、Magic SysRq、core dump 和 relay | 关闭这些调试选项 |
+| 精简 | procd 沙箱 | 选中 `procd-ujail` 和 `procd-seccomp` | 关闭 `procd-ujail`，服务不再以 namespace/chroot 沙箱启动；保留 `procd-seccomp` 系统调用过滤 |
 | 精简 | Swap | 启用 `CONFIG_KERNEL_SWAP` | 关闭内核 Swap 支持 |
 | 精简 | 开发工具链 | 启用开发模式、GDB、BPF 主机工具链和主机 LLVM 选项 | 关闭对应选项，BPF 工具链改为 `NONE` |
 | 精简 | OpenSSL | 启用 ENGINE、CMS、废弃接口、部分旧算法和 `libopenssl-legacy` | 关闭上述选项，启用 `OPENSSL_NO_DEPRECATED`；保留 OpenSSL 主库 |
 | 调整 | 未启用应用的附加选项 | IPTV 设备默认项、PassWall 和 Rclone 的部分附加选项仍启用 | 清理这些默认/附加选项；IPTV、PassWall、Rclone 应用在两份配置中均未启用 |
 | 新增 | BusyBox `usleep` | 未启用 `CONFIG_BUSYBOX_CONFIG_USLEEP` | 启用微秒级休眠命令 `usleep` |
-| 新增 | Airoha NPU 管理 | 未选中 NPU LuCI 应用 | 加入 `luci-app-airoha-npu` 和 `luci-i18n-airoha-npu-zh-cn`，提供 NPU 管理界面及中文翻译 |
-| 新增 | NPU 软件源 | 配置文件不涉及软件源脚本 | `diy-part1.sh` 拉取 [luanmuc/luci-app-airoha-npu](https://github.com/luanmuc/luci-app-airoha-npu)，通过 `feeds.conf.default` 的本地 `airoha` feed 加入构建 |
+| 新增 | NPU 软件源 | 配置文件不涉及软件源脚本 | `diy-part1.sh` 拉取 [luanmuc/luci-app-airoha-npu](https://github.com/luanmuc/luci-app-airoha-npu)，通过 `feeds.conf.default` 的本地 `airoha` feed 加入构建；`luci-app-airoha-npu` 及中文翻译暂未选中，不打包进固件，需要时改回 `=y` 即可 |
+| 精简 | LuCI 菜单 | 显示「系统 → 插件」和「网络 → 诊断」 | `diy-part2.sh` 编译前从 `luci-mod-system`、`luci-mod-network` 菜单定义中移除这两项并删除对应页面；菜单项不存在时编译中止 |
 | 新增 | CPU/PON 温度显示 | 配置文件不涉及自定义温度脚本 | 添加 `files/sbin/tempinfo`，从 `thermal_zone0` 读取 CPU 温度，从 `ponctl status --json` 读取 PON 前端温度 |
 | 新增 | CPU 使用率附加 PPE 流表 | 状态页仅显示 CPU 使用率 | 添加 `files/sbin/cpuusage`，`diy-part2.sh` 将 LuCI `getCPUUsage` 改为调用该脚本，在 CPU 使用率后显示 `PPE0/PPE1` 已绑定/总条目数（按 `/sys/kernel/debug/ppe/entries` 索引区间划分），如 `CPU: 7%, PPE0: 2/35, PPE1: 5/33`；替换失败时编译中止 |
 | 调整 | 架构信息精简 | autocore 的 `/sbin/cpuinfo` 在架构后附加 CPU 频率和温度 | 添加 `files/sbin/cpuinfo` 覆盖 autocore 版本，状态页「架构」只显示 `ARMv8 Processor rev 4 (v8l) x 4`，温度见「温度」行 |
+| 调整 | 最大连接数 | 使用内核默认的 `nf_conntrack_max` | 添加 `files/etc/sysctl.d/99-nf-conntrack-max.conf`，将最大连接数设为 `30000`（LuCI「活动连接」上限） |
 | 新增 | 脚本权限修复 | 配置文件不涉及首次启动脚本 | 添加 `files/etc/uci-defaults/98-script-perm`，首次启动时补齐 `/sbin/tempinfo`、`/sbin/cpuusage`、`/sbin/cpuinfo` 的执行权限 |
 
 表中的“关闭”指关闭编译选项，包含上游选为 `y` 或 `m` 的包。基础 LuCI 中文界面、PON 管理和 BBR 均为上游已有功能。
